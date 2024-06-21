@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prodej Piva Pivovar Portáš</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f7f7f7;
+            margin: 0;
+            padding: 20px;
+        }
+        .tile {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 22%;
+            height: 100px;
+            margin: 5px;
+            background-color: #007BFF;
+            color: white;
+            text-align: center;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.1s, box-shadow 0.1s;
+        }
+        .tile:active, .tile.active {
+            background-color: #0056b3;
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .tile.red {
+            background-color: #FF0000;
+        }
+        .tile.red:active, .tile.red.active {
+            background-color: #cc0000;
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .order-summary, .calculator, .report, .last-orders-report {
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            background-color: white;
+            width: 90%;
+            max-width: 400px;
+            text-align: center;
+        }
+        .calculator input, .calculator button {
+            width: 100%;
+            margin: 10px 0;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 18px;
+        }
+        .report-item {
+            margin: 5px 0;
+        }
+        .order-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .order-item button {
+            background-color: #FF0000;
+            color: white;
+            border: none;
+            padding: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .order-item input {
+            width: 50px;
+            margin-left: 10px;
+            padding: 5px;
+            text-align: center;
+            font-size: 18px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 5px;
+            font-size: 18px;
+            transition: background-color 0.3s, transform 0.1s, box-shadow 0.1s;
+        }
+        button:active, button.active {
+            background-color: #0056b3;
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        button.red {
+            background-color: #FF0000;
+        }
+        button.red:active, button.red.active {
+            background-color: #cc0000;
+            transform: scale(0.95);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        }
+        @media (max-width: 600px) {
+            .tile {
+                width: 46%;
+            }
+            .calculator input {
+                width: calc(100% - 20px);
+                margin: 10px auto;
+            }
+        }
+        @media (min-width: 601px) and (max-width: 1200px) {
+            .tile {
+                width: 22%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Prodej Piva Pivovar Portáš</h1>
+    <div class="container" id="products">
+        <!-- Products Tiles -->
+    </div>
+    <div class="order-summary" id="order-summary">
+        <h2>Souhrn objednávky</h2>
+        <div id="order-items"></div>
+        <div><strong>Celkem: </strong><span id="total-price">0</span> Kč</div>
+    </div>
+    <div class="calculator">
+        <h2>Kalkulačka</h2>
+        <div><strong>Celkem: </strong><span id="calculator-total-price">0</span> Kč</div>
+        <input type="number" id="received-amount" placeholder="Zadaná částka (Kč)" inputmode="numeric">
+        <input type="number" id="tip-amount" placeholder="Dýško (Kč)" inputmode="numeric">
+        <div><strong>Vrátit: </strong><span id="change-amount">0</span> Kč</div>
+        <button onclick="completeOrder()">Dokončit objednávku</button>
+    </div>
+    <div class="last-orders-report">
+        <h2>Poslední 3 objednávky</h2>
+        <div id="last-orders-items"></div>
+    </div>
+    <div class="report">
+        <h2>Reporty</h2>
+        <button onclick="showReport('all')">Sumář všech objednávek</button>
+        <button onclick="showReport('daily')">Sumář za každý druh piva za den</button>
+        <button onclick="showReport('totals')">Celkové částky za den</button>
+        <button class="red" onclick="resetReport()">Vynulovat report</button>
+        <button onclick="downloadReport()">Stáhnout report</button>
+        <div id="report-items"></div>
+    </div>
+    <div id="version">
+        <p>Verze 1.16</p>
+    </div>
+
+    <script>
+        const products = [
+            { name: 'Pivo 0.3L A', price: 30 },
+            { name: 'Pivo 0.5L A', price: 50 },
+            { name: 'Pivo 0.3L B', price: 30 },
+            { name: 'Pivo 0.5L B', price: 50 },
+            { name: 'Pivo 0.3L C', price: 30 },
+            { name: 'Pivo 0.5L C', price: 50 },
+            { name: 'Pivo 0.3L D', price: 30 },
+            { name: 'Pivo 0.5L D', price: 50 },
+            { name: 'PET láhev 1L', price: 100 },
+            { name: 'Prodej kelímku', price: 50 },
+            { name: 'Vratka kelímku', price: -50, red: true }
+        ];
+
+        let order = [];
+        let reports = JSON.parse(localStorage.getItem('reports')) || [];
+
+        function renderProducts() {
+            const productContainer = document.getElementById('products');
+            productContainer.innerHTML = '';
+            products.forEach(product => {
+                const tile = document.createElement('div');
+                tile.className = 'tile' + (product.red ? ' red' : '');
+                tile.innerText = `${product.name}\n${product.price} Kč`;
+                tile.onclick = () => addToOrder(product);
+                productContainer.appendChild(tile);
+            });
+        }
+
+        function addToOrder(product) {
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            const existingProductIndex = order.findIndex(item => item.name === product.name);
+            if (existingProductIndex !== -1) {
+                order[existingProductIndex].quantity += 1;
+            } else {
+                order.push({ ...product, quantity: 1 });
+            }
+            renderOrderSummary();
+            highlightTile(product.name);
+        }
+
+        function highlightTile(productName) {
+            const tiles = document.querySelectorAll('.tile');
+            tiles.forEach(tile => {
+                if (tile.innerText.includes(productName)) {
+                    tile.classList.add('active');
+                    setTimeout(() => {
+                        tile.classList.remove('active');
+                    }, 300);
+                }
+            });
+        }
+
+        function updateQuantity(index, quantity) {
+            order[index].quantity = parseInt(quantity) || 0;
+            if (order[index].quantity <= 0) {
+                order.splice(index, 1);
+            }
+            renderOrderSummary();
+        }
+
+        function removeFromOrder(index) {
+            order.splice(index, 1);
+            renderOrderSummary();
+        }
+
+        function renderOrderSummary() {
+            const orderItems = document.getElementById('order-items');
+            const calculatorTotalPrice = document.getElementById('calculator-total-price');
+            orderItems.innerHTML = '';
+            let totalPrice = 0;
+            order.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'order-item';
+                div.innerHTML = `
+                    ${item.name} - ${item.price} Kč x 
+                    <input type="number" value="${item.quantity}" min="0" inputmode="numeric" oninput="updateQuantity(${index}, this.value)">
+                    <button onclick="removeFromOrder(${index})">Storno</button>
+                `;
+                orderItems.appendChild(div);
+                totalPrice += item.price * item.quantity;
+                if (item.name.includes('Pivo')) {
+                    totalPrice += 50 * item.quantity; // Přidání zálohy na kelímek
+                }
+            });
+            document.getElementById('total-price').innerText = totalPrice;
+            calculatorTotalPrice.innerText = totalPrice;
+            calculateChange();
+        }
+
+        function calculateChange() {
+            const receivedAmount = parseFloat(document.getElementById('received-amount').value) || 0;
+            const tipAmount = parseFloat(document.getElementById('tip-amount').value) || 0;
+            const totalPrice = parseFloat(document.getElementById('calculator-total-price').innerText) || 0;
+            let changeAmount = receivedAmount - totalPrice;
+
+            if (tipAmount > 0) {
+                changeAmount = receivedAmount - tipAmount;
+            }
+
+            document.getElementById('change-amount').innerText = changeAmount >= 0 ? changeAmount : 0;
+        }
+
+        function completeOrder() {
+            if (order.length === 0) return;
+            const now = new Date();
+            const reportItem = {
+                date: now.toLocaleDateString(),
+                time: now.toLocaleTimeString(),
+                items: [...order],
+                total: parseFloat(document.getElementById('calculator-total-price').innerText)
+            };
+            reports.push(reportItem);
+            localStorage.setItem('reports', JSON.stringify(reports));
+            order = [];
+            renderOrderSummary();
+            renderReport();
+            renderLastOrdersReport();
+            resetCalculator();
+            window.scrollTo(0, 0);
+        }
+
+        function resetCalculator() {
+            document.getElementById('received-amount').value = '';
+            document.getElementById('tip-amount').value = '';
+            document.getElementById('change-amount').innerText = '0';
+            document.getElementById('calculator-total-price').innerText = '0';
+        }
+
+        function renderLastOrdersReport() {
+            const lastOrdersItems = document.getElementById('last-orders-items');
+            lastOrdersItems.innerHTML = '';
+            const lastOrders = reports.slice(-3).reverse();
+            lastOrders.forEach(report => {
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'report-item';
+                reportDiv.innerHTML = `
+                    <strong>${report.date} <span style="color: red;">${report.time}</span></strong><br>
+                    ${report.items.map(item => `${item.name} (${item.price} Kč) x ${item.quantity}`).join(', ')}<br>
+                    <strong>Celkem: ${report.total} Kč</strong>
+                `;
+                lastOrdersItems.appendChild(reportDiv);
+            });
+        }
+
+        function renderReport() {
+            const reportItems = document.getElementById('report-items');
+            reportItems.innerHTML = '';
+        }
+
+        function showReport(type) {
+            const reportItems = document.getElementById('report-items');
+            reportItems.innerHTML = '';
+            if (type === 'all') {
+                renderAllOrdersReport();
+            } else if (type === 'daily') {
+                renderDailyReport();
+            } else if (type === 'totals') {
+                renderTotalsReport();
+            }
+        }
+
+        function renderAllOrdersReport() {
+            const reportItems = document.getElementById('report-items');
+            reportItems.innerHTML = '';
+            reports.forEach(report => {
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'report-item';
+                reportDiv.innerHTML = `
+                    <strong>${report.date} <span style="color: red;">${report.time}</span></strong><br>
+                    ${report.items.map(item => `${item.name} (${item.price} Kč) x ${item.quantity}`).join(', ')}<br>
+                    <strong>Celkem: ${report.total} Kč</strong>
+                `;
+                reportItems.appendChild(reportDiv);
+            });
+        }
+
+        function renderDailyReport() {
+            const dailyReport = {};
+            reports.forEach(report => {
+                report.items.forEach(item => {
+                    if (!dailyReport[item.name]) {
+                        dailyReport[item.name] = 0;
+                    }
+                    dailyReport[item.name] += item.price * item.quantity;
+                });
+            });
+            const reportItems = document.getElementById('report-items');
+            Object.keys(dailyReport).forEach(key => {
+                const div = document.createElement('div');
+                div.className = 'report-item';
+                div.innerText = `${key}: ${dailyReport[key]} Kč`;
+                reportItems.appendChild(div);
+            });
+        }
+
+        function renderTotalsReport() {
+            let totalSum = 0;
+            reports.forEach(report => {
+                totalSum += report.total;
+            });
+            const div = document.createElement('div');
+            div.className = 'report-item';
+            div.innerText = `Celkem: ${totalSum} Kč`;
+            const reportItems = document.getElementById('report-items');
+            reportItems.appendChild(div);
+        }
+
+        function resetReport() {
+            if (confirm("Opravdu chcete vynulovat report?")) {
+                reports = [];
+                localStorage.setItem('reports', JSON.stringify(reports));
+                renderReport();
+                renderLastOrdersReport();
+            }
+        }
+
+        function downloadReport() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(reports, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "report.json");
+            document.body.appendChild(downloadAnchorNode);
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        document.getElementById('received-amount').addEventListener('input', calculateChange);
+        document.getElementById('tip-amount').addEventListener('input', calculateChange);
+
+        renderProducts();
+        renderLastOrdersReport();
+    </script>
+</body>
+</html>
+
+<!-- Verze 1.16 -->
